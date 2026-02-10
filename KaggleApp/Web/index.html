@@ -1,0 +1,658 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toxicity Analyzer Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f3f4f6;
+            --bg-side: #ffffff;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --border: #e5e7eb;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --clr-safe: #10b981;
+            --clr-violation: #ef4444;
+            --bg-info: #eff6ff;
+            --text-info: #1e40af;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            padding-top: 15px;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 320px;
+            background: var(--bg-side);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .logo-area h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* Collapsible Format Guide */
+        .format-guide {
+            display: none; /* Hidden by default */
+            background: var(--bg-info);
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: var(--text-info);
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .format-guide strong {
+            display: block;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+
+        .format-guide ul {
+            margin-left: 15px;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-toggle {
+            font-size: 11px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        textarea {
+            flex-grow: 1;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            resize: none;
+            font-family: inherit;
+            font-size: 13px;
+            background: #fdfdfd;
+        }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: white;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-primary {
+            grid-column: span 2;
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+
+        .btn-outline {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+            .btn-outline:hover {
+                background: var(--bg-info);
+            }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .stats-header {
+            background: white;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 32px;
+            margin: 0 20px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .stat-card .label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .stat-card .value {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .dashboard-row {
+            display: none;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+            padding: 15px 20px;
+            margin: 0 20px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            max-height: 250px;
+        }
+
+        .chart-wrapper {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+            .chart-wrapper label {
+                display: block;
+                margin-bottom: 8px;
+                font-size: 10px;
+                color: var(--text-muted);
+                text-align: center;
+            }
+
+        .chart-scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .toolbar {
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            margin: 0 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-tabs {
+            display: flex;
+            background: var(--bg-main);
+            padding: 4px;
+            border-radius: 8px;
+            gap: 4px;
+        }
+
+        .tab {
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+            .tab.active {
+                background: white;
+                color: var(--accent);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            }
+
+        /* --- Table --- */
+        .grid-container {
+            flex-grow: 1;
+            overflow: auto;
+            padding: 0 20px 20px 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: #f9fafb;
+            z-index: 5;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 12px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .badge {
+            display: inline-flex;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .bg-violation {
+            background: #fee2e2;
+            color: var(--clr-violation);
+        }
+
+        .bg-safe {
+            background: #dcfce7;
+            color: var(--clr-safe);
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 140px;
+        }
+
+        .bar-bg {
+            flex-grow: 1;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.7);
+            display: none;
+            place-items: center;
+            z-index: 100;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="sidebar">
+        <div class="logo-area"><h1><span>🛡️</span> Toxic Guard</h1></div>
+
+        <!-- Format Guide Section (Hidden by Default) -->
+        <div id="formatGuide" class="format-guide">
+            <strong>📂 File Import Guide</strong>
+            <p>One comment per line.</p>
+            <ul>
+                <li>CSV: Single column.</li>
+                <li>No headers/titles.</li>
+                <li>Max 5000 lines recommended.</li>
+            </ul>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Manual Entry</label>
+                <!-- Contextual help link -->
+                <span class="info-toggle" id="infoToggle">Format Info?</span>
+            </div>
+            <textarea id="commentsInput" placeholder="Type or paste comments..."></textarea>
+
+            <button id="predictBtn" class="btn btn-primary">Analyze Entries</button>
+            <div class="btn-row">
+                <button id="loadFileBtn" class="btn btn-outline">📂 Import File</button>
+                <button id="sampleBtn" class="btn">Samples</button>
+                <button id="clearBtn" class="btn" style="grid-column: span 2;">Clear All</button>
+            </div>
+        </div>
+
+        <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px;">
+            <button id="exportCsvBtn" class="btn" style="width: 100%; margin-bottom: 8px;">Export Results</button>
+            <button id="toggleDashBtn" class="btn" style="width: 100%;">Toggle Overview</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="stats-header">
+            <div class="stat-card"><div class="label">Total</div><div class="value" id="statTotal">0</div></div>
+            <div class="stat-card"><div class="label">Violations</div><div class="value" style="color: var(--clr-violation)" id="statToxic">0</div></div>
+            <div class="stat-card"><div class="label">Safe</div><div class="value" style="color: var(--clr-safe)" id="statClean">0</div></div>
+            <div class="stat-card"><div class="label">Avg Prob</div><div class="value" id="statAvg">0.00%</div></div>
+        </div>
+
+        <!-- Dashboard Row -->
+        <div class="dashboard-row" id="dashboardRow">
+            <div class="chart-wrapper">
+                <label>Safe vs Violations</label>
+                <div style="height: 160px;"><canvas id="statusChart"></canvas></div>
+            </div>
+            <div class="chart-wrapper">
+                <label>Rule Violation Frequency (Top 10)</label>
+                <div class="chart-scroll-area" id="ruleScrollArea">
+                    <div id="ruleChartContainer" style="height: 160px;">
+                        <canvas id="ruleChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="filter-tabs" id="filterTabs">
+                <div class="tab active" data-filter="all">All</div>
+                <div class="tab" data-filter="Violates rule">Flagged</div>
+                <div class="tab" data-filter="Safe">Safe</div>
+            </div>
+            <div id="rowCount" style="font-size: 11px; color: var(--text-muted); font-weight: 700;">0 RESULTS</div>
+        </div>
+
+        <div class="grid-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Comment Content</th>
+                        <th style="width: 160px;">Probability</th>
+                        <th style="width: 130px;">Status</th>
+                        <th style="width: 150px;">Violation</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let activeFilter = 'all';
+        let statusChart = null;
+        let ruleChart = null;
+
+        const inputArea = document.getElementById('commentsInput');
+        const resultsBody = document.getElementById('resultsBody');
+        const loader = document.getElementById('loader');
+        const guide = document.getElementById('formatGuide');
+
+        // Toggle the guide
+        document.getElementById('infoToggle').addEventListener('click', () => {
+            guide.style.display = (guide.style.display === 'none' || guide.style.display === '') ? 'block' : 'none';
+        });
+
+        function processAnalysisResults(comments, results) {
+            rawData = results.map((res, index) => {
+                const prob = res.probability !== undefined ? res.probability : (res.Probability || 0);
+                const status = res.status || res.Status || "Safe";
+                const rule = res.rule || res.Rule || '';
+                const text = comments ? comments[index] : (res.comment || res.Comment || "");
+
+                return {
+                    id: index + 1,
+                    text: text,
+                    probability: prob,
+                    status: status,
+                    rule: rule
+                };
+            });
+
+            updateStats();
+            updateCharts();
+            renderTable();
+
+            if (rawData.length > 0) document.getElementById('dashboardRow').style.display = 'grid';
+            loader.style.display = 'none';
+            guide.style.display = 'none'; // Auto-hide guide after successful processing
+        }
+
+        function renderTable() {
+            resultsBody.innerHTML = '';
+            const filtered = rawData.filter(item => activeFilter === 'all' || item.status === activeFilter);
+            document.getElementById('rowCount').textContent = `${filtered.length} RESULTS`;
+
+            filtered.forEach(item => {
+                const score = (item.probability * 100).toFixed(1);
+                const isViolation = item.status === 'Violates rule';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                        <td style="color: #9ca3af; font-weight: 700; font-size: 11px;">${item.id}</td>
+                        <td style="max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.text)}">${escapeHtml(item.text)}</td>
+                        <td>
+                            <div class="bar-container">
+                                <div class="bar-bg"><div class="bar-fill" style="width: ${score}%; background: var(--clr-${isViolation ? 'violation' : 'safe'})"></div></div>
+                                <span style="font-family: monospace; font-weight: 700;">${score}%</span>
+                            </div>
+                        </td>
+                        <td><span class="badge ${isViolation ? 'bg-violation' : 'bg-safe'}">${item.status}</span></td>
+                        <td style="color: var(--text-muted); font-size: 11px; font-family: monospace;">${item.rule || '—'}</td>
+                    `;
+                resultsBody.appendChild(row);
+            });
+        }
+
+        function updateStats() {
+            const violationCount = rawData.filter(x => x.status === 'Violates rule').length;
+            const safeCount = rawData.filter(x => x.status === 'Safe').length;
+            const avgProb = rawData.length ? (rawData.reduce((a, b) => a + b.probability, 0) / rawData.length) : 0;
+
+            document.getElementById('statTotal').textContent = rawData.length;
+            document.getElementById('statToxic').textContent = violationCount;
+            document.getElementById('statClean').textContent = safeCount;
+            document.getElementById('statAvg').textContent = (avgProb * 100).toFixed(1) + '%';
+        }
+
+        function updateCharts() {
+            const violationCount = rawData.filter(x => x.status === 'Violates rule').length;
+            const safeCount = rawData.filter(x => x.status === 'Safe').length;
+
+            if (statusChart) statusChart.destroy();
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctxStatus, {
+                type: 'pie',
+                data: {
+                    labels: ['Violations', 'Safe'],
+                    datasets: [{
+                        data: [violationCount, safeCount],
+                        backgroundColor: ['#ef4444', '#10b981']
+                    }]
+                },
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
+            });
+
+            const ruleFreq = {};
+            rawData.filter(x => x.rule).forEach(x => { ruleFreq[x.rule] = (ruleFreq[x.rule] || 0) + 1; });
+            const topRules = Object.entries(ruleFreq).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            const container = document.getElementById('ruleChartContainer');
+            const newHeight = Math.max(160, topRules.length * 30);
+            container.style.height = newHeight + 'px';
+
+            if (ruleChart) ruleChart.destroy();
+            const ctxRule = document.getElementById('ruleChart').getContext('2d');
+            ruleChart = new Chart(ctxRule, {
+                type: 'bar',
+                data: {
+                    labels: topRules.map(x => x[0]),
+                    datasets: [{
+                        data: topRules.map(x => x[1]),
+                        backgroundColor: '#2563eb',
+                        barThickness: 15
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } },
+                        y: { ticks: { font: { size: 10 }, autoSkip: false } }
+                    }
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('loadFileBtn').addEventListener('click', () => {
+            if (window.chrome?.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({ action: "loadFile" }));
+            }
+        });
+
+        document.getElementById('predictBtn').addEventListener('click', () => {
+            const lines = inputArea.value.split('\n').filter(l => l.trim().length > 0);
+            if (lines.length === 0) return;
+            loader.style.display = 'grid';
+            if (window.chrome?.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({ action: "analyze", comments: lines }));
+            }
+        });
+
+        document.getElementById('toggleDashBtn').addEventListener('click', () => {
+            const dash = document.getElementById('dashboardRow');
+            dash.style.display = (dash.style.display === 'none' || dash.style.display === '') ? 'grid' : 'none';
+        });
+
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            if (window.chrome?.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({
+                    action: "export",
+                    filterType: activeFilter === "all" ? null : activeFilter
+                }));
+            }
+        });
+
+        document.getElementById('filterTabs').addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab')) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                activeFilter = e.target.dataset.filter;
+                renderTable();
+            }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            inputArea.value = ''; rawData = [];
+            document.getElementById('dashboardRow').style.display = 'none';
+            guide.style.display = 'none';
+            updateStats(); renderTable();
+        });
+
+        document.getElementById('sampleBtn').addEventListener('click', () => {
+            inputArea.value = "You are doing a great job!\nThis is stupid and I hate it.\nIncredible work on the dataset.\nShut up you absolute fool.\nWhy are you like this?";
+        });
+
+        if (window.chrome && window.chrome.webview) {
+            window.chrome.webview.addEventListener('message', event => {
+                const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                if (msg.comments && msg.results) processAnalysisResults(msg.comments, msg.results);
+            });
+        }
+    </script>
+</body>
+</html>
